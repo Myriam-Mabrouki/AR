@@ -83,6 +83,10 @@ int Prioritaire (int h, int id) {
     return 0;
 } 
 
+int max(int a, int b){
+    return (a<b? b : a);
+}
+
 void Attendre_message (int * i) {
    
     int recu;
@@ -131,9 +135,9 @@ int main (int argc, char* argv[]) {
    int cont_CS=0;
   
     /* initialisation MPI */
-    MPI_init(&argc,&argv);
+    MPI_Init(&argc,&argv);
 	file = alloca(nb_proc * sizeof(File));
-    //File file[nb_proc];
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 
    while (cont_CS < MAX_CS ) {
 
