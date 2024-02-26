@@ -22,7 +22,7 @@
 
 #define MAX_CS 5
 
-typdef struct _file {
+typedef struct _file {
     int p; /* Identifiant du processus */
     int h; /* Horloge */
 } File;
@@ -30,12 +30,13 @@ typdef struct _file {
 MPI_Status status;
 int nb_proc;
 int nback = 0;
+int state;
 
 int rank;
 int etat = NOT_REQUESTING;
 int horloge = 0;
 int date_requete = 0;
-File file[nb_proc];
+File * file;
 
 void Request_CS (void) {
     
@@ -47,7 +48,7 @@ void Request_CS (void) {
 
     /* Diffuser (REQ, horloge) */
     for (int i = 0; i < nb_proc; i++){
-        if (i != rank ) MPI_Send(horloge,1,MPI_int,i,REQUEST,MPI_COMM_WORLD);
+        if (i != rank ) MPI_Send(horloge,1,MPI_INT,i,REQUEST,MPI_COMM_WORLD);
     }
 }
 
@@ -55,11 +56,11 @@ void Release_CS (void) {
    horloge++;
 
     for (int i = 0; i < nb_proc; i++){
-        if (file[i].p == -1) { /* Fin de la file si elle n'est pas complète */
+        if ((file[i]).p == -1) { /* Fin de la file si elle n'est pas complète */
             break;
         }
         else {
-            MPI_Send(horloge,1,MPI_int,file[i].p,ACK,MPI_COMM_WORLD);
+            MPI_Send(horloge,1,MPI_INT,file[i].p,ACK,MPI_COMM_WORLD);
         }
     }
 
@@ -91,15 +92,14 @@ void Attendre_message (int * i) {
 
     switch (status.MPI_TAG) {
         case REQUEST :
-            int 
             if (etat == NOT_REQUESTING) {
                 horloge++;
-                MPI_Send(horloge,1,MPI_int,status.MPI_SOURCE,ACK,MPI_COMM_WORLD);
+                MPI_Send(horloge,1,MPI_INT,status.MPI_SOURCE,ACK,MPI_COMM_WORLD);
             }
             else {
                 if (etat == REQUESTING && !Prioritaire(recu, status.MPI_SOURCE)) {
                     horloge++;
-                    MPI_Send(horloge,1,MPI_int,status.MPI_SOURCE,ACK,MPI_COMM_WORLD);
+                    MPI_Send(horloge,1,MPI_INT,status.MPI_SOURCE,ACK,MPI_COMM_WORLD);
                 }
                 else{
                     for (int i = 0; i < nb_proc; i++){
@@ -132,7 +132,9 @@ int main (int argc, char* argv[]) {
   
     /* initialisation MPI */
     MPI_init(&argc,&argv);
-	
+	file = alloca(nb_proc * sizeof(File));
+    //File file[nb_proc];
+
    while (cont_CS < MAX_CS ) {
 
       Request_CS();
@@ -144,15 +146,15 @@ int main (int argc, char* argv[]) {
 
       /* CS */
       cont_CS++;
-      printf ("ENTREE EN SECTION CRITIQUE cont:% d - proc:%d  \n", cont_CS, rang);
+      printf ("ENTREE EN SECTION CRITIQUE cont:% d - proc:%d  \n", cont_CS, rank);
       sleep(1);
-      printf ("SORTIE DE SECTION CRITIQUE cont:% d - proc:%d  \n", cont_CS, rang);
+      printf ("SORTIE DE SECTION CRITIQUE cont:% d - proc:%d  \n", cont_CS, rank);
       Release_CS();
     }
         
     /* traiter la terminaison de l'algorithme */  
     for (i = 0; i < nb_proc; i++){
-        if (i != rank ) MPI_Send(i,1,MPI_int,i,REQUEST,MPI_COMM_WORLD);
+        if (i != rank ) MPI_Send(i,1,MPI_INT,i,REQUEST,MPI_COMM_WORLD);
     }
 
     i = 0;
