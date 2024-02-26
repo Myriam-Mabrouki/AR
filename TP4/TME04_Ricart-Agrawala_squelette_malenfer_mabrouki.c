@@ -47,12 +47,7 @@ void Request_CS (void) {
 
     /* Diffuser (REQ, horloge) */
     for (int i = 0; i < nb_proc; i++){
-        MPI_Send(horloge,1,MPI_int,i,REQUEST,MPI_COMM_WORLD);
-    }
-
-    /* Attendre de pouvoir prendre la Section Critique */
-    while (nback < nb_proc -1){
-        Attendre_message(/* argument */);
+        if (i != rank ) MPI_Send(horloge,1,MPI_int,i,REQUEST,MPI_COMM_WORLD);
     }
 }
 
@@ -87,22 +82,24 @@ int Prioritaire (int h, int id) {
     return 0;
 } 
 
-void Attendre_message (void ) {
+void Attendre_message (int * i) {
    
-    MPI_Recv( ..., &status);
+    int recu;
+    MPI_Recv(&recu, 1, MPI_INT, MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
     
     horloge = max (horloge, recu) + 1;
 
     switch (status.MPI_TAG) {
         case REQUEST :
             int 
-            if (etat == NOT_REQUESTING &&   ) {
+            if (etat == NOT_REQUESTING) {
                 horloge++;
-                MPI_Send();
+                MPI_Send(horloge,1,MPI_int,status.MPI_SOURCE,ACK,MPI_COMM_WORLD);
             }
             else {
                 if (etat == REQUESTING && !Prioritaire(recu, status.MPI_SOURCE)) {
-                    MPI_Send();
+                    horloge++;
+                    MPI_Send(horloge,1,MPI_int,status.MPI_SOURCE,ACK,MPI_COMM_WORLD);
                 }
                 else{
                     for (int i = 0; i < nb_proc; i++){
@@ -124,6 +121,7 @@ void Attendre_message (void ) {
             break;
 
         case FIN :
+            *i = *i + 1;
         
   }
 }
@@ -132,9 +130,8 @@ int main (int argc, char* argv[]) {
    int i;
    int cont_CS=0;
   
-     /* initialisation MPI */
-     MPI_init(&argc,&argv);
-        ....
+    /* initialisation MPI */
+    MPI_init(&argc,&argv);
 	
    while (cont_CS < MAX_CS ) {
 
@@ -142,8 +139,8 @@ int main (int argc, char* argv[]) {
       
       nback = 0;
 	
-      while ( nback < n_proc -1)
-         Attendre_message ( );
+      while ( nback < nb_proc -1)
+         Attendre_message (&i);
 
       /* CS */
       cont_CS++;
@@ -151,14 +148,20 @@ int main (int argc, char* argv[]) {
       sleep(1);
       printf ("SORTIE DE SECTION CRITIQUE cont:% d - proc:%d  \n", cont_CS, rang);
       Release_CS();
-   }
+    }
         
-   /* traiter la terminaison de l'algorithme */  
-    
+    /* traiter la terminaison de l'algorithme */  
+    for (i = 0; i < nb_proc; i++){
+        if (i != rank ) MPI_Send(i,1,MPI_int,i,REQUEST,MPI_COMM_WORLD);
+    }
 
-   MPI_Finalize();
-  /* terminer MPI */
-   return 0;
+    i = 0;
+    while (i < nb_proc -1)
+        Attendre_message (&i);
+
+    MPI_Finalize();
+    /* terminer MPI */
+    return 0;
 }
        
 
