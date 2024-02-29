@@ -5,7 +5,7 @@
 #include <limits.h>
 
 #define TAGINIT 0
-#define NB_SITE 6
+#define NB_SITE 4
 
 #define TAG 99
 
@@ -72,8 +72,8 @@ void simulateur(void) {
 
    /* liste des voisins */
    int voisins[NB_SITE+1][3] = {{-1, -1, -1},
-         {2, 3, -1}, {1, 4, 5}, 
-         {1, 6, -1}, {2, -1, -1},
+         {2, 3, -1}, /* {1, 4, 5}, 
+         {1, 6, -1}, */ {3, -1, -1},
          {2, -1, -1}, {3, -1, -1}};
                                
    for(i=1; i<=NB_SITE; i++){
@@ -99,6 +99,7 @@ int main (int argc, char* argv[]) {
    MPI_Comm_rank(MPI_COMM_WORLD, &rang);
   
    if (rang == 0) {
+      printf("Je suis le processus 0 qui initialise l'arbre\n");
       simulateur();
    } else {
       calcul_min(rang);
