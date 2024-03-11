@@ -32,13 +32,74 @@ void calcul_min(int rang) {
    for (int i = 0; i < nb_voisins - 1; i++){ 
       printf("%d, ", voisins[i]);
    }
-   if (nb_voisins > 1) printf(" et %d; ", voisins[nb_voisins-1]); 
+   if (nb_voisins > 1) printf("et %d; ", voisins[nb_voisins-1]);
+   else printf("%d, ", voisins[0]);
    printf("et mon minimum local est %d.\n", min_local);
 
    /* Début de l'algorithme à vagues */
 
    while(1){
-      if(nb_recu < nb_voisins-1){
+
+      if (nb_recu == nb_voisins-1) {
+         int src = -1;
+         if (nb_voisins > 1){
+            for (int i = nb_voisins - 1; i >= 0; i--){
+               if (recu[i] == false){
+                  src = voisins[i];
+               }
+            }
+         }
+         else {
+            src = voisins[0];
+         }
+         
+         printf("Je suis %d, et j'envoie à %d.\n", rang, src);
+         MPI_Send(&min_local, 1, MPI_INT, src, TAG_ARBRE, MPI_COMM_WORLD);
+      }
+
+
+      MPI_Recv(&min_recu, 1, MPI_INT, MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
+      int received = status.MPI_SOURCE;
+      switch (status.MPI_TAG) {
+         
+         case TAG_ARBRE : 
+            printf("Je suis %d, et j'ai reçu un message de %d.\n", rang, received);
+         
+            int index = -1;
+            for (int i = 0; i < nb_voisins; i++){
+               if (voisins[i] == received){
+                  index = i;
+                  break;
+               }
+            }
+            recu[index] = true;
+            nb_recu++;
+            if (min_recu < min_local){ 
+               min_local = min_recu;
+            }
+            break;
+         
+         case TAG_FIN:
+            min_local = min_recu;
+				printf("Je suis %d et je ne suis pas décideur. Le minimum est : %d\n", rang, min_local);
+            break;
+
+      }
+   
+      if (nb_recu == nb_voisins){
+         printf("Je suis le décideur : %d. Le minimum est : %d\n", rang, min_local);
+         for (int i = 1; i < NB_SITE+1; i++){
+            MPI_Send(&min_local, 1, MPI_INT, i, TAG_FIN, MPI_COMM_WORLD);
+         }
+         break;
+      }
+
+   }
+
+   
+
+
+      /* if(nb_recu < nb_voisins-1){
          MPI_Recv(&min_recu, 1, MPI_INT, MPI_ANY_SOURCE, TAG_ARBRE, MPI_COMM_WORLD, &status);
          int received = status.MPI_SOURCE;
          printf("Je suis %d, et j'ai reçu un message de %d.\n", rang, received);
@@ -55,18 +116,28 @@ void calcul_min(int rang) {
          if (min_recu < min_local){ 
             min_local = min_recu;
          }
-         printf("Je suis %d dans if %d\n", rang, nb_recu);
       }
 
       else{
-         if(!sent){
-            printf("Je suis %d dans else\n", rang);
+      
+      	/* Condition d'arrêt
+
+			  /* Décideur si on a reçu un message de tous nos voisins
+			  if (nb_recu == nb_voisins){
+					 printf("Je suis le décideur : %d. Le minimum est : %d\n", rang, min_local);
+					 for (int i = 1; i < NB_SITE+1; i++){
+							MPI_Send(&min_local, 1, MPI_INT, i, TAG_FIN, MPI_COMM_WORLD);
+					 }
+		 				break;
+			  }
+			  
+			  
+			  else if(!sent){
             int src = -1;
             if (nb_voisins > 1){
                for (int i = nb_voisins - 1; i >= 0; i--){
                   if (recu[i] == false){
-                     src = i;
-                     break;
+                     src = voisins[i];
                   }
                }
             }
@@ -78,29 +149,17 @@ void calcul_min(int rang) {
             MPI_Send(&min_local, 1, MPI_INT, src, TAG_ARBRE, MPI_COMM_WORLD);
             sent = true;
          }
-      }
-
-      /* Condition d'arrêt */
-
-      /* Décideur si on a reçu un message de tous nos voisins */
-      if (nb_recu == nb_voisins){
-         printf("Je suis le décideur : %d. Le minimum est : %d\n", rang, min_local);
-         for (int i = 1; i < NB_SITE+1; i++){
-            MPI_Send(&min_local, 1, MPI_INT, i, TAG_FIN, MPI_COMM_WORLD);
-         }
-         break;
-      }
-      /* Une fois qu'on a envoyé notre message, on attend un message du décideur si on ne l'est pas */
-      else if (sent){
-         MPI_Recv(&min_recu, 1, MPI_INT, MPI_ANY_SOURCE, TAG_FIN, MPI_COMM_WORLD, &status);
-         min_local = min_recu;
-         printf("Je suis %d et je ne suis pas décideur. Le minimum est : %d\n", rang, min_local);
-         break;
-      }
-   }
-
-   
-
+      
+      
+			  /* Une fois qu'on a envoyé notre message, on attend un message du décideur si on ne l'est pas
+			  else {
+					 MPI_Recv(&min_recu, 1, MPI_INT, MPI_ANY_SOURCE, TAG_FIN, MPI_COMM_WORLD, &status);
+					 min_local = min_recu;
+					 printf("Je suis %d et je ne suis pas décideur. Le minimum est : %d\n", rang, min_local);
+					 break;
+			  }
+      
+     } */
 }
 
 void simulateur(void) {
@@ -112,8 +171,8 @@ void simulateur(void) {
 
    /* liste des voisins */
    int voisins[NB_SITE+1][3] = {{-1, -1, -1},
-         {2, 3, -1},  {1, 4, 5}, 
-         {1, 6, -1}, {3, -1, -1},
+         {2, 3, -1}, {1, 4, 5}, 
+         {1, 6, -1}, {2, -1, -1},
          {2, -1, -1}, {3, -1, -1}};
                                
    for(i=1; i<=NB_SITE; i++){
